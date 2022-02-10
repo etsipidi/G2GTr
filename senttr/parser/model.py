@@ -19,7 +19,7 @@ class State(object):
         self.buf = [i+1 for i in range(len(self.tok_buffer))]
         self.stack = [0]
         self.head = [[-1, -1] for _ in range(len(self.tok_buffer)+1)]
-        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"SWAP"}
+        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"REDUCE"}
         self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
         self.input_graph=input_graph
 
@@ -62,41 +62,39 @@ class State(object):
                 self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
                 self.tok_stack[0] = self.tok_buffer[-1].clone()
             elif act == "LEFTARC":
-                self.head[self.stack[1]] = [self.stack[0], rel.item()]
+                self.head[self.stack[0]] = [self.buf[0], rel.item()]
                 if self.input_graph:
-                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 1
-                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 2
-                    self.label[self.convert[self.stack[1]]] = rel
-                self.stack = [self.stack[0]] + self.stack[2:]
-                self.tok_stack = torch.cat(
-                    (self.tok_stack[0].unsqueeze(0),torch.roll(self.tok_stack[1:],-1,dims=0))).clone()
-            elif act == "RIGHTARC":
-                self.head[self.stack[0]] = [self.stack[1], rel.item()]
-                if self.input_graph:
-                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 1
-                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 2
+                    self.graph[self.convert[self.buf[0]],self.convert[self.stack[0]]] = 1
+                    self.graph[self.convert[self.stack[0]],self.convert[self.buf[0]]] = 2
                     self.label[self.convert[self.stack[0]]] = rel
                 self.stack = self.stack[1:]
                 self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
-            elif act == "SWAP":
-                self.buf = [self.stack[1]] + self.buf
-                self.stack = [self.stack[0]] + self.stack[2:]
-                self.tok_stack = torch.cat(
-                    (self.tok_stack[0].unsqueeze(0), torch.roll(self.tok_stack[1:], -1, dims=0))).clone()
-                self.tok_buffer = torch.roll(self.tok_buffer, 1, dims=0).clone()
-                self.tok_buffer[0] = self.tok_stack[-1]
+            elif act == "RIGHTARC":
+                self.head[self.buf[0]] = [self.stack[0], rel.item()]
+                if self.input_graph:
+                    self.graph[self.convert[self.stack[0]],self.convert[self.buf[0]]] = 1
+                    self.graph[self.convert[self.buf[0]],self.convert[self.stack[0]]] = 2
+                    self.label[self.convert[self.buf[0]]] = rel
+                self.stack = [self.buf[0]] + self.stack
+                self.buf = self.buf[1:]
+                self.tok_buffer = torch.roll(self.tok_buffer,-1,dims=0).clone()
+                self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
+                self.tok_stack[0] = self.tok_buffer[-1].clone()
+            elif act == "REDUCE":
+                self.stack = self.stack[1:]
+                self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
 
     # legal actions at evaluation time
     def legal_act(self):
         t = [0,0,0,0]
-        if len(self.stack) >= 2 and self.stack[1] != 0:
-            t[0] = 1
-        if len(self.stack) >= 2 and self.stack[0] != 0:
-            t[1] = 1
         if len(self.buf) > 0:
-            t[2] = 1
-        if len(self.stack) >= 2 and 0 < self.stack[1] < self.stack[0]:
-            t[3] = 1
+            t[2] = 1 # shift
+            if len(self.stack) >= 2:
+                t[1] = 1 # right-arc
+                if self.stack[0] != 0:
+                    t[0] = 1 # left-arc
+        if len(self.stack) >= 2:
+            t[3] = 1 # reduce
         return t
 
     # check whether the dependency tree is completed or not.
@@ -134,7 +132,7 @@ class Model(object):
             else:
                 self.optimizer.zero_grad()
 
-            ## leftarc and rightarc have dependencies, so we filter swap and shift
+            ## leftarc and rightarc have dependencies, so we filter reduce and shift
             mask_rels = ((actions != 3).long() * (actions != 2).long() * mask_actions.long()).bool()
 
             actions = actions[mask_actions]

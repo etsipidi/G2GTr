@@ -3,7 +3,7 @@ MAIN_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/embeddings"
 BERT_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/tempbert/"
 DATA_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/data"
 
-python run.py train --lr1 1e-5 --lr2 1e-4 -w 0.001 --modelname senttr_g2g --batch_size 40 --buckets 10 \
+python run.py train --lr1 1e-5 --lr2 1e-4 -w 0.001 --modelname arceager_senttr_g2g --batch_size 40 --buckets 10 \
          --ftrain $DATA_PATH/train.conllx \
          --ftrain_seq $DATA_PATH/oracle-eager.seq \
          --ftest $DATA_PATH/test.conllx \

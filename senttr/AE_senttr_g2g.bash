@@ -1,7 +1,7 @@
 #!/bin/bash
 MAIN_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/embeddings"
 BERT_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/tempbert/"
-DATA_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/data"
+DATA_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/data/projective"
 
 python run.py train --lr 1e-5 --lr2 1e-4 -w 0.001 --modelname arceager_senttr_g2g --batch_size 40 --buckets 10 \
          --ftrain $DATA_PATH/train.conll \

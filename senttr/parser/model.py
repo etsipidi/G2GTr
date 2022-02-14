@@ -87,6 +87,8 @@ class State(object):
             elif act == "REDUCE":
                 self.stack = self.stack[1:]
                 self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
+            print("stack:", self.stack)
+            print("buffer:", self.buf, '\n')
 
     # legal actions at evaluation time
     def legal_act(self):

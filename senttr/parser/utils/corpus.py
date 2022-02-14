@@ -10,7 +10,7 @@ Sentence = namedtuple(typename='Sentence',
                       defaults=[None]*10)
 
 
-## transit = ['LA', 'RA', 'SH', 'RE']
+## transit = ['L', 'R', 'S']
 def read_seq(in_file, vocab):
     lines = []
     with open(in_file, 'r') as f:
@@ -31,12 +31,8 @@ def read_seq(in_file, vocab):
             assert line[0] == 'Shift'
             seq.append(2)
             arcs.append(0)
-        elif len(line) == 1:
-            assert line[0] == 'Reduce'
-            seq.append(3)
-            arcs.append(0)
         elif len(line) == 2:
-            if line[0].startswith('Ri'):
+            if line[0].startswith('R'):
                 assert line[0] == 'Right-Arc'
                 seq.append(1)
                 arcs.append(vocab.rel2id( line[1] ))

@@ -29,8 +29,8 @@ class Vocab(object):
         else:
             self.rels = [self.PAD] + self.rels
 
-        ## left-arc:LA,right-arc:RA,shift:SH,reduce:RE
-        self.trans = ['LA', 'RA', 'SH', 'RE']
+        ## left-arc:L,right-arc:R,shift:S
+        self.trans = ['L', 'R', 'S']
         self.trans_dict = {tr:i for i,tr in enumerate(self.trans)}
 
         self.word_dict = {word: i for i,word in enumerate(self.words)}

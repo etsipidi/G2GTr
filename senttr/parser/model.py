@@ -22,6 +22,8 @@ class State(object):
         self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"REDUCE"}
         self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
         self.input_graph=input_graph
+        #print(repr(self))
+        print("length:", len(self.tok_buffer))
 
     # build partially constructed graph
     def build_graph(self,mask,device,bert_label):
@@ -55,6 +57,9 @@ class State(object):
     def update(self,act,rel=None):
         act = self.dict[act.item()]
         if not self.finished():
+            print("stack:", self.stack)
+            print("buffer:", self.buf)
+            print(act)
             if act == "SHIFT":
                 self.stack = [self.buf[0]] + self.stack
                 self.buf = self.buf[1:]
@@ -62,6 +67,9 @@ class State(object):
                 self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
                 self.tok_stack[0] = self.tok_buffer[-1].clone()
             elif act == "LEFTARC":
+#                print("stack:", self.stack)
+#                print("buffer:", self.buf)
+                print("rel:", rel.item())
                 self.head[self.stack[0]] = [self.buf[0], rel.item()]
                 if self.input_graph:
                     self.graph[self.convert[self.buf[0]],self.convert[self.stack[0]]] = 1
@@ -70,6 +78,7 @@ class State(object):
                 self.stack = self.stack[1:]
                 self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
             elif act == "RIGHTARC":
+                print("rel:", rel.item())
                 self.head[self.buf[0]] = [self.stack[0], rel.item()]
                 if self.input_graph:
                     self.graph[self.convert[self.stack[0]],self.convert[self.buf[0]]] = 1
@@ -83,6 +92,7 @@ class State(object):
             elif act == "REDUCE":
                 self.stack = self.stack[1:]
                 self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
+            # print(self.label)
 
     # legal actions at evaluation time
     def legal_act(self):
@@ -120,7 +130,8 @@ class Model(object):
         pbar = tqdm(total= len(loader))
 
         for ccc,(words, tags, masks, actions, mask_actions, rels) in enumerate(loader):
-            
+            print("words:", words)
+            print("tags", tags)
             states = [State(mask,tags.device,self.vocab.bert_index,self.config.input_graph)
                       for mask in masks]
             s_arc,s_rel = self.parser(words, tags, masks, states, actions, rels)

@@ -143,7 +143,7 @@ class Train(object):
         train_loader,_ = batchify(dataset=trainset,
                                 batch_size=config.batch_size,
                                 n_buckets=config.buckets,
-                                shuffle=False)
+                                shuffle=True)
         dev_loader,_  = batchify(dataset=devset,
                               batch_size=config.batch_size,
                               n_buckets=config.buckets)

@@ -99,7 +99,7 @@ class State(object):
 
     # check whether the dependency tree is completed or not.
     def finished(self):
-        return len(self.stack) == 1 and len(self.buf) == 0
+        return len(self.stack) <= 3 and len(self.buf) == 0
 
     def __repr__(self):
         return "State:\nConvert:{}\n Graph:{}\n,Label:{}\nHead:{}\n".\

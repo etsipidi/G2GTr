@@ -55,6 +55,8 @@ class State(object):
     def update(self,act,rel=None):
         act = self.dict[act.item()]
         if not self.finished():
+            if len(self.buf) == 0:
+                act = "REDUCE"
             if act == "SHIFT":
                 self.stack = [self.buf[0]] + self.stack
                 self.buf = self.buf[1:]
@@ -99,7 +101,7 @@ class State(object):
 
     # check whether the dependency tree is completed or not.
     def finished(self):
-        return len(self.stack) <= 3 and len(self.buf) == 0
+        return len(self.stack) == 1 and len(self.buf) == 0
 
     def __repr__(self):
         return "State:\nConvert:{}\n Graph:{}\n,Label:{}\nHead:{}\n".\

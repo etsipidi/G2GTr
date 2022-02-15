@@ -26,10 +26,11 @@ class Classifier(nn.Module):
 
 class Parser(nn.Module):
 
-    def __init__(self, config, bertmodel):
+    def __init__(self, config, bertmodel, vrels):
         super(Parser, self).__init__()
 
         self.config = config
+        self.vrels = vrels
 
         # build and load BERT G2G model
         bertconfig = BertConfig.from_pretrained(
@@ -114,7 +115,8 @@ class Parser(nn.Module):
                 rel = rels[:,step]
 
             for i,(state,a,r) in enumerate(zip(states,act,rel)):
-                state.update(a,r)
+                l_rel = self.vrels[r.item()]
+                state.update(a, l_rel, r)
 
             if all([state.finished() for state in states]) and actions is None:
                 break

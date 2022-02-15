@@ -53,12 +53,16 @@ class State(object):
         return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)))
 
     # update state
-    def update(self,act,rel=None):
+    def update(self,act, vrel, rel=None):
         act = self.dict[act.item()]
         if not self.finished():
-            print("stack:", self.stack)
-            print("buffer:", self.buf)
-            print(act)
+            if max(self.stack + self.buf) == 24:
+                print("stack:", self.stack)
+                print("buffer:", self.buf)
+                print("rel:", vrel)
+#            print("tok_stack:", self.tok_stack)
+#            print("tok_buffer:", self.tok_buffer)
+                print(act, '\n\n')
             if act == "SHIFT":
                 self.stack = [self.buf[0]] + self.stack
                 self.buf = self.buf[1:]
@@ -87,8 +91,10 @@ class State(object):
             elif act == "REDUCE":
                 self.stack = self.stack[1:]
                 self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
-            print("stack:", self.stack)
-            print("buffer:", self.buf, '\n')
+#            print("stack:", self.stack)
+#            print("buffer:", self.buf)
+#            print("tok_stack:", self.tok_stack)
+#            print("tok_buffer:", self.tok_buffer, '\n\n')
 
     # legal actions at evaluation time
     def legal_act(self):

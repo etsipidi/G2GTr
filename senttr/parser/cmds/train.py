@@ -163,7 +163,7 @@ class Train(object):
             parser = Parser.load(config.main_path + config.model + config.modelname
                                  + "/parser-checkpoint")
         else:
-            parser = Parser(config, vocab.bertmodel)
+            parser = Parser(config, vocab.bertmodel, vocab.rels)
 
         print("number of parameters:{}".format(sum(p.numel() for p in parser.parameters()
                                              if p.requires_grad)))

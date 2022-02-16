@@ -8,6 +8,6 @@ python run.py train --lr 1e-5 -w 0.001 --modelname senttr_ae --batch_size 40 --b
          --ftrain_seq $DATA_PATH/oracle_eager.seq \
          --ftest $DATA_PATH/test.conll \
          --fdev $DATA_PATH/dev.conll \
-         --bert_path $BERT_PATH --punct --n_attention_layer 6 --epochs 12 --act_thr 280 \
+         --bert_path $BERT_PATH --punct --n_attention_layer 6 --epochs 12 --act_thr 250 \
          --model model/ --vocab model/ \
          --main_path $MAIN_PATH --device 0 --threads 16

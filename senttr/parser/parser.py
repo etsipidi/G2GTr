@@ -32,7 +32,8 @@ class Parser(nn.Module):
         self.config = config
 
         # build and load BERT G2G model
-        bertconfig = BertConfig.from_pretrained(config.bert_path+'/config.json')
+        bertmodel_dir = f"{config.main_path}{config.model}{config.modelname}/bert_model/"
+        bertconfig = BertConfig.from_pretrained(bertmodel_dir+'/config.json')
 
         bertconfig.num_hidden_layers = config.n_attention_layer
         bertconfig.label_size = config.n_rels

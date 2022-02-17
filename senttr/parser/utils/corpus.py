@@ -27,19 +27,17 @@ def read_seq(in_file, vocab):
             gold_seq.append({'act':seq, 'rel':arcs})
             max_read += 1
             arcs, seq = [], []
-        elif len(line) == 3:
+        elif line[0].startswith('Sh'):
             assert line[0] == 'Shift'
             seq.append(2)
             arcs.append(0)
-        elif len(line) == 2:
-            if line[0].startswith('R'):
-                assert line[0] == 'Right-Arc'
-                seq.append(1)
-                arcs.append(vocab.rel2id( line[1] ))
-            elif line[0].startswith('L'):
-                assert line[0] == 'Left-Arc'
-                seq.append(0)
-                arcs.append(vocab.rel2id( line[1] ))
+        elif ine[0].startswith('Ri'):
+            assert line[0] == 'Right-Arc'
+            seq.append(1)
+            arcs.append(vocab.rel2id( line[1] ))
+        elif line[0].startswith('Le'):
+            assert line[0] == 'Left-Arc'
+            seq.append(0)
     return gold_seq
 
 

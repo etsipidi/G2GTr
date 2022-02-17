@@ -103,17 +103,14 @@ class Train(object):
         dev = Corpus.load(config.fdev)
         test = Corpus.load(config.ftest)
 
-        if path.exists(config.model) != True:
-            os.mkdir(config.model)
+        current_model_dir = f"{config.main_path}{config.model}{config.modelname}"
 
-        if path.exists("model/") != True:
-            os.mkdir("model/")
+        if path.exists(current_model_dir) != True:
+            os.makedirs(current_model_dir)
 
-        if path.exists(config.model+config.modelname) != True:
-            os.mkdir(config.model+config.modelname)
-
+        vocab_path = f"{current_model_dir}/vocab.tag"
         if config.checkpoint:
-            vocab = torch.load(config.main_path + config.vocab+config.modelname + "/vocab.tag")
+            vocab = torch.load(vocab_path)
         else:
             vocab = Vocab.from_corpus(config=config, corpus=train,
                                       corpus_dev=dev,corpus_test=test,min_freq=0)
@@ -123,7 +120,7 @@ class Train(object):
             total_act += len(x)
         print("number of transitions:{}".format(total_act))
 
-        torch.save(vocab, config.vocab+config.modelname + "/vocab.tag")
+        torch.save(vocab, vocab_path)
         
         config.update({
             'n_words': vocab.n_train_words,
@@ -159,9 +156,10 @@ class Train(object):
               f"{len(test_loader):3} batches provided")
         print("Create the model")
 
+        parser_path = f"{current_model_dir}/parser-checkpoint"
+
         if config.checkpoint:
-            parser = Parser.load(config.main_path + config.model + config.modelname
-                                 + "/parser-checkpoint")
+            parser = Parser.load(parser_path)
         else:
             parser = Parser(config, vocab.bertmodel)
 
@@ -236,9 +234,9 @@ class Train(object):
         start_epoch = 1
 
         ## load model, optimiser, and other parameters from a checkpoint
+        checkpoint_path = f"{current_model_dir}/checkpoint"
         if config.checkpoint:
-            check_load = torch.load(config.main_path + config.model
-                                    + config.modelname + "/checkpoint")
+            check_load = torch.load(checkpoint_path)
             if config.use_two_opts:
                 model.optimizer_bert.load_state_dict(check_load['optimizer_bert'])
                 model.optimizer_nonbert.load_state_dict(check_load['optimizer_nonbert'])
@@ -254,7 +252,9 @@ class Train(object):
                 best_e = check_load['best_e']
                 best_metric = check_load['best_metric']
 
-        f1 = open(config.model+config.modelname+"/baseline.txt","a")
+        f1_path = f"{current_model_dir}/baseline.txt"
+
+        f1 = open(f1_path,"a")
         
         f1.write("New Model:\n")
         f1.close()
@@ -263,7 +263,7 @@ class Train(object):
             # train one epoch and update the parameters
             model.train(train_loader)
             print(f"Epoch {epoch} / {config.epochs}:")
-            f1 = open(config.model+config.modelname+"/baseline.txt","a")
+            f1 = open(f1_path,"a")
             dev_metric = model.evaluate(dev_loader, config.punct)
             f1.write(str(epoch)+"\n")
             print(f"{'dev:':6} {dev_metric}")
@@ -273,10 +273,11 @@ class Train(object):
 
             t = datetime.now() - start
             # save the model if it is the best so far
+            weights_path = f"{current_model_dir}/model_weights"
             if dev_metric > best_metric:
                 best_e, best_metric = epoch, dev_metric
-                print(config.model + config.modelname + "/model_weights")
-                model.parser.save(config.model + config.modelname + "/model_weights")
+                print(weights_path)
+                model.parser.save(weights_path)
                 print(f"{t}s elapsed (saved)\n")
             else:
                 print(f"{t}s elapsed\n")
@@ -295,8 +296,8 @@ class Train(object):
                     'best_metric':best_metric,
                     'best_e':best_e
                 }
-                torch.save(checkpoint,config.main_path + config.model + config.modelname + "/checkpoint")
-                parser.save(config.main_path + config.model + config.modelname + "/parser-checkpoint")
+                torch.save(checkpoint, checkpoint_path)
+                parser.save(parser_path)
             else:
                 checkpoint = {
                     "epoch": epoch,
@@ -305,9 +306,9 @@ class Train(object):
                     'best_metric':best_metric,
                     'best_e':best_e
                 }
-                torch.save(checkpoint,config.main_path + config.model + config.modelname + "/checkpoint")
-                parser.save(config.main_path + config.model + config.modelname + "/parser-checkpoint")
-        model.parser = Parser.load(config.model + config.modelname + "/model_weights")
+                torch.save(checkpoint, checkpoint_path)
+                parser.save(parser_path)
+        model.parser = Parser.load(weights_path)
         metric = model.evaluate(test_loader, config.punct)
         print(metric)
         print(f"max score of dev is {best_metric.score:.2%} at epoch {best_e}")

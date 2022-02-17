@@ -1,9 +1,10 @@
 #!/bin/bash
-main_path="/idiap/temp/amohammadshahi/Debug_transformer/emnlp/EMNLP2020/emnlp-senttr"
-input_data="/idiap/temp/amohammadshahi/Debug_transformer/edited-transformer-new-ud-swap/data/test.conll"
+main_path="/home/etsipidi/Documents/Parsing/G2GTr/senttr/"
+input_data="/home/etsipidi/Documents/Parsing/G2GTr/senttr/data/ud_v1_3/test.conll"
 type="conllx"
-modelname="senttr"
-output_path="idiap/temp/amohammadshahi/Debug_transformer/emnlp/EMNLP2020/emnlp-senttr/predict_output"
+model="model/"
+modelname="senttr_st"
+output_path="/home/etsipidi/Documents/Parsing/G2GTr/senttr/model/senttr_st/predict_output/"
 
 if [ ! -d $output_path ]; then
   mkdir -p $output_path;
@@ -18,7 +19,7 @@ else
 fi
 
 echo "Predicting the input file"
-python run.py predict --modelname $modelname --fdata $output_path/original.conllx --fpred $output_path/pred.conllx --mainpath $main_path/
+python run.py predict --model $model --vocab $model --modelname $modelname --fdata $output_path/original.conllx --fpred $output_path/pred.conllx --mainpath $main_path/
 echo "Finished Prediction"
 if [ "$type" = "conllu" ]; then
     echo "Converting back to CONLL-U format"

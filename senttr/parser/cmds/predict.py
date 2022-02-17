@@ -35,8 +35,9 @@ class Predict(object):
     def __call__(self, args):
         print("Load the model")
 
-        modelpath = args.mainpath + args.model + args.modelname + "/model_weights"
-        vocabpath = args.mainpath + args.vocab + args.modelname + "/vocab.tag"
+        current_model_dir = f"{args.mainpath}{args.model}{args.modelname}"
+        modelpath = f"{current_model_dir}/model_weights"
+        vocabpath = f"{current_model_dir}/vocab.tag"
 
         config = torch.load(modelpath)['config']
 

@@ -31,13 +31,14 @@ def read_seq(in_file, vocab):
             assert line[0] == 'Shift'
             seq.append(2)
             arcs.append(0)
-        elif ine[0].startswith('Ri'):
+        elif line[0].startswith('Ri'):
             assert line[0] == 'Right-Arc'
             seq.append(1)
             arcs.append(vocab.rel2id( line[1] ))
         elif line[0].startswith('Le'):
             assert line[0] == 'Left-Arc'
             seq.append(0)
+            arcs.append(vocab.rel2id( line[1] ))
     return gold_seq
 
 

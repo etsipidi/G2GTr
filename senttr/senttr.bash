@@ -3,7 +3,7 @@ MAIN_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/"
 BERT_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/tempbert/"
 DATA_PATH="/home/etsipidi/Documents/Parsing/G2GTr/senttr/data/"
 
-<<<<<<< HEAD
+python run.py train --lr 1e-5 -w 0.001 --modelname swap_senttr --batch_size 40 --buckets 10 \
          --ftrain $DATA_PATH/train.conll \
          --ftrain_seq $DATA_PATH/oracle_swap.seq \
          --ftest $DATA_PATH/test.conll \

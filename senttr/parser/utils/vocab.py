@@ -78,7 +78,7 @@ class Vocab(object):
             os.makedirs(bertmodel_dir)
             
         ### Now let's save our model and tokenizer to a directory
-        self.bertmodel.save_pretrained(config.main_path + "/model" + "/model_" + config.modelname)
+        self.bertmodel.save_pretrained(bertmodel_dir)
 
         self.tag_dict = {tag: i for i,tag in enumerate(self.tags)}
         

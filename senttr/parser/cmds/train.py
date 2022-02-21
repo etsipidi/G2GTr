@@ -7,10 +7,10 @@ from parser import Parser, Model
 from parser.metric import Metric
 from parser.utils import Corpus, Vocab
 from parser.utils.data import TextDataset, batchify
+from parser.utils.operations import ArcStandardSwapOps, ArcStandardOps, ArcEagerOps
 
 import torch
 from transformers import AdamW,get_linear_schedule_with_warmup
-from parser.utils.corpus import read_seq
 
 class Train(object):
 
@@ -95,10 +95,21 @@ class Train(object):
 
         subparser.add_argument('--main_path', default='', help='path to main directory')
 
+        subparser.add_argument('--parser_type', default='asd_swap',
+                               help="'ae' for arc-eager, 'asd' for arc-standard and 'asd_swap' for arc-standard with swap")
+
         return subparser
 
     def __call__(self, config):
         print("Preprocess the data")
+
+        if config.parser_type == 'asd':
+            parser_ops = ArcStandardOps()
+        elif config.parser_type == 'ae':
+            parser_ops = ArcEagerOps()
+        else:
+            parser_ops = ArcStandardSwapOps()
+
         train = Corpus.load(config.ftrain)
         dev = Corpus.load(config.fdev)
         test = Corpus.load(config.ftest)
@@ -112,9 +123,10 @@ class Train(object):
         if config.checkpoint:
             vocab = torch.load(vocab_path)
         else:
-            vocab = Vocab.from_corpus(config=config, corpus=train,
+            vocab_transitions = parser_ops.get_vocab_transitions()
+            vocab = Vocab.from_corpus(config=config, trans=vocab_transitions, corpus=train,
                                       corpus_dev=dev,corpus_test=test,min_freq=0)
-        train_seq = read_seq(config.ftrain_seq,vocab)
+        train_seq = parser_ops.read_seq(config.ftrain_seq, vocab)
         total_act = 0
         for x in train_seq:
             total_act += len(x)
@@ -170,7 +182,7 @@ class Train(object):
             device = torch.device('cuda')
             parser = parser.to(device)
 
-        model = Model(vocab, parser, config, vocab.n_rels)
+        model = Model(vocab, parser, parser_ops, config, vocab.n_rels)
         total_time = timedelta()
         best_e, best_metric = 1, Metric()
 

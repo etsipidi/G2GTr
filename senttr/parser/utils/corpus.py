@@ -10,43 +10,6 @@ Sentence = namedtuple(typename='Sentence',
                       defaults=[None]*10)
 
 
-## transit = ['L', 'R', 'S','H']
-def read_seq(in_file, vocab):
-    lines = []
-    with open(in_file, 'r') as f:
-        for line in f:
-            lines.append(line)
-    for i in range(len(lines)):
-        lines[i] = lines[i].strip().split()
-    gold_seq, arcs, seq = [], [], []
-    max_read = 0
-    for line in lines:
-        #if max_read == 100:
-        #   break
-        if len(line) == 0:
-            gold_seq.append({'act':seq, 'rel':arcs})
-            max_read += 1
-            arcs, seq = [], []
-        elif len(line) == 3:
-            assert line[0] == 'Shift'
-            seq.append(2)
-            arcs.append(0)
-        elif len(line) == 1:
-            assert line[0] == 'Swap'
-            seq.append(3)
-            arcs.append(0)
-        elif len(line) == 2:
-            if line[0].startswith('R'):
-                assert line[0] == 'Right-Arc'
-                seq.append(1)
-                arcs.append(vocab.rel2id( line[1] ))
-            elif line[0].startswith('L'):
-                assert line[0] == 'Left-Arc'
-                seq.append(0)
-                arcs.append(vocab.rel2id( line[1] ))
-    return gold_seq
-
-
 class Corpus(object):
     ROOT = '<ROOT>'
 

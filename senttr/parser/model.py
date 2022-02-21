@@ -12,14 +12,14 @@ import torch.nn.functional as F
 
 ## this class keeps parser state information
 class State(object):
-    def __init__(self, mask,device,bert_label=None,input_graph=False):
+    def __init__(self, mask, parser_ops, device,bert_label=None,input_graph=False):
         self.tok_buffer = mask.nonzero().squeeze(1)
         self.tok_stack = torch.zeros(len(self.tok_buffer)+1).long().to(device)
         self.tok_stack[0] = 1
         self.buf = [i+1 for i in range(len(self.tok_buffer))]
         self.stack = [0]
         self.head = [[-1, -1] for _ in range(len(self.tok_buffer)+1)]
-        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"SWAP"}
+        self.parser_ops = parser_ops
         self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
         self.input_graph=input_graph
 
@@ -53,51 +53,11 @@ class State(object):
 
     # update state
     def update(self,act,rel=None):
-        act = self.dict[act.item()]
-        if not self.finished():
-            if act == "SHIFT":
-                self.stack = [self.buf[0]] + self.stack
-                self.buf = self.buf[1:]
-                self.tok_buffer = torch.roll(self.tok_buffer,-1,dims=0).clone()
-                self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
-                self.tok_stack[0] = self.tok_buffer[-1].clone()
-            elif act == "LEFTARC":
-                self.head[self.stack[1]] = [self.stack[0], rel.item()]
-                if self.input_graph:
-                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 1
-                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 2
-                    self.label[self.convert[self.stack[1]]] = rel
-                self.stack = [self.stack[0]] + self.stack[2:]
-                self.tok_stack = torch.cat(
-                    (self.tok_stack[0].unsqueeze(0),torch.roll(self.tok_stack[1:],-1,dims=0))).clone()
-            elif act == "RIGHTARC":
-                self.head[self.stack[0]] = [self.stack[1], rel.item()]
-                if self.input_graph:
-                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 1
-                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 2
-                    self.label[self.convert[self.stack[0]]] = rel
-                self.stack = self.stack[1:]
-                self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
-            elif act == "SWAP":
-                self.buf = [self.stack[1]] + self.buf
-                self.stack = [self.stack[0]] + self.stack[2:]
-                self.tok_stack = torch.cat(
-                    (self.tok_stack[0].unsqueeze(0), torch.roll(self.tok_stack[1:], -1, dims=0))).clone()
-                self.tok_buffer = torch.roll(self.tok_buffer, 1, dims=0).clone()
-                self.tok_buffer[0] = self.tok_stack[-1]
+        self.parser_ops.state_update(self, act, rel)
 
     # legal actions at evaluation time
     def legal_act(self):
-        t = [0,0,0,0]
-        if len(self.stack) >= 2 and self.stack[1] != 0:
-            t[0] = 1
-        if len(self.stack) >= 2 and self.stack[0] != 0:
-            t[1] = 1
-        if len(self.buf) > 0:
-            t[2] = 1
-        if len(self.stack) >= 2 and 0 < self.stack[1] < self.stack[0]:
-            t[3] = 1
-        return t
+        return self.parser_ops.state_legal_act(self)
 
     # check whether the dependency tree is completed or not.
     def finished(self):
@@ -109,21 +69,22 @@ class State(object):
 
 class Model(object):
 
-    def __init__(self, vocab, parser, config, num_labels):
+    def __init__(self, vocab, parser, parser_ops, config, num_labels):
         super(Model, self).__init__()
         self.vocab = vocab
         self.parser = parser
         self.num_labels = num_labels
         self.config = config
         self.criterion = nn.CrossEntropyLoss()
+        self.parser_ops = parser_ops
 
     def train(self, loader):
         self.parser.train()
         pbar = tqdm(total= len(loader))
 
         for ccc,(words, tags, masks, actions, mask_actions, rels) in enumerate(loader):
-            
-            states = [State(mask,tags.device,self.vocab.bert_index,self.config.input_graph)
+
+            states = [State(mask, self.parser_ops, tags.device,self.vocab.bert_index,self.config.input_graph)
                       for mask in masks]
             s_arc,s_rel = self.parser(words, tags, masks, states, actions, rels)
 
@@ -134,7 +95,7 @@ class Model(object):
             else:
                 self.optimizer.zero_grad()
 
-            ## leftarc and rightarc have dependencies, so we filter swap and shift
+            ## leftarc and rightarc have dependencies, so we filter swap/ reduce and shift
             mask_rels = ((actions != 3).long() * (actions != 2).long() * mask_actions.long()).bool()
 
             actions = actions[mask_actions]

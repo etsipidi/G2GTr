@@ -11,7 +11,7 @@ class Vocab(object):
     UNK = '[UNK]'
     BERT = '[BERT]'
 
-    def __init__(self, config, words, tags, rels):
+    def __init__(self, config, trans, words, tags, rels):
 
         self.config = config
         self.max_pad_length = config.max_seq_length
@@ -29,8 +29,7 @@ class Vocab(object):
         else:
             self.rels = [self.PAD] + self.rels
 
-        ## left-arc:L,right-arc:R,shift:S,swap:H
-        self.trans = ['L', 'R', 'S','H']
+        self.trans = trans
         self.trans_dict = {tr:i for i,tr in enumerate(self.trans)}
 
         self.word_dict = {word: i for i,word in enumerate(self.words)}
@@ -273,7 +272,7 @@ class Vocab(object):
             return self.map_arcs_bert_pred(corpus,seq_corpus)
 
     @classmethod
-    def from_corpus(cls, config, corpus, corpus_dev=None, corpus_test=None, min_freq=0):
+    def from_corpus(cls, config, trans, corpus, corpus_dev=None, corpus_test=None, min_freq=0):
         if corpus_dev is not None:
             all_words = corpus.words + corpus_dev.words + corpus_test.words
         else:
@@ -282,6 +281,6 @@ class Vocab(object):
         words = list(word for word, freq in words.items() if freq >= min_freq)
         tags = list({tag for seq in corpus.tags for tag in seq})
         rels = list({rel for seq in corpus.rels for rel in seq})
-        vocab = cls(config, words, tags, rels)
+        vocab = cls(config, trans, words, tags, rels)
 
         return vocab

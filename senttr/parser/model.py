@@ -126,7 +126,7 @@ class Model(object):
         pbar = tqdm(total=len(loader))
 
         for words, tags, masks,heads,rels,mask_heads in loader:
-            states = [State(mask, tags.device,self.vocab.bert_index,self.config.input_graph)
+            states = [State(mask, self.parser_ops, tags.device,self.vocab.bert_index,self.config.input_graph)
                       for mask in masks]
 
             states = self.parser(words, tags, masks,states)
@@ -157,7 +157,7 @@ class Model(object):
         pbar = tqdm(total=len(loader))
         all_arcs, all_rels = [], []
         for words, tags, masks,heads,rels,mask_heads in loader:
-            states = [State(mask, tags.device, self.vocab.bert_index,self.config.input_graph)
+            states = [State(mask, self.parser_ops, tags.device, self.vocab.bert_index,self.config.input_graph)
                       for mask in masks]
             states = self.parser(words, tags, masks, states)
 

@@ -44,12 +44,12 @@ class State(object):
 
     #required features for graph output mechanism (exist classifier)
     def feature(self):
-        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)
-                          ,self.tok_buffer[0].unsqueeze(0)))
+        return torch.cat((self.tok_stack[0].unsqueeze(0),self.tok_buffer[0].unsqueeze(0)
+                          ,self.tok_buffer[1].unsqueeze(0)))
 
     # required features for graph output mechanism (relation classifier)
     def feature_label(self):
-        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)))
+        return torch.cat((self.tok_stack[0].unsqueeze(0),self.tok_buffer[0].unsqueeze(0)))
 
     # update state
     def update(self,act,rel=None):

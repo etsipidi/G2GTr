@@ -9,14 +9,11 @@ class ParserOperations(object):
     def get_vocab_transitions(self):
         raise NotImplementedError()
 
+    def get_state_class(self):
+        raise NotImplementedError()
+
     @classmethod
     def read_seq(self, in_file, vocab):
-        raise NotImplementedError()
-
-    def state_update(self, state, act, rel=None):
-        raise NotImplementedError()
-
-    def state_legal_act(self, state):
         raise NotImplementedError()
 
 
@@ -24,10 +21,12 @@ class ArcStandardSwapOps(ParserOperations):
     def __init__(self):
         super(ArcStandardSwapOps, self).__init__()
         self.vocab_transitions = ['L', 'R', 'S', 'H']
-        self.act_dict = {0:"LEFTARC", 1:"RIGHTARC", 2:"SHIFT", 3:"SWAP"}
 
     def get_vocab_transitions(self):
         return self.vocab_transitions
+
+    def get_state_class(self):
+        return ArcStandardSwapState
 
     @classmethod
     def read_seq(self, in_file, vocab):
@@ -63,61 +62,17 @@ class ArcStandardSwapOps(ParserOperations):
                     arcs.append(vocab.rel2id( line[1] ))
         return gold_seq
 
-    def state_update(self, state, act, rel=None):
-        act = self.act_dict[act.item()]
-        if not state.finished():
-            if act == "SHIFT":
-                state.stack = [state.buf[0]] + state.stack
-                state.buf = state.buf[1:]
-                state.tok_buffer = torch.roll(state.tok_buffer,-1,dims=0).clone()
-                state.tok_stack = torch.roll(state.tok_stack,1,dims=0).clone()
-                state.tok_stack[0] = state.tok_buffer[-1].clone()
-            elif act == "LEFTARC":
-                state.head[state.stack[1]] = [state.stack[0], rel.item()]
-                if state.input_graph:
-                    state.graph[state.convert[state.stack[0]],state.convert[state.stack[1]]] = 1
-                    state.graph[state.convert[state.stack[1]],state.convert[state.stack[0]]] = 2
-                    state.label[state.convert[state.stack[1]]] = rel
-                state.stack = [state.stack[0]] + state.stack[2:]
-                state.tok_stack = torch.cat(
-                    (state.tok_stack[0].unsqueeze(0),torch.roll(state.tok_stack[1:],-1,dims=0))).clone()
-            elif act == "RIGHTARC":
-                state.head[state.stack[0]] = [state.stack[1], rel.item()]
-                if state.input_graph:
-                    state.graph[state.convert[state.stack[1]],state.convert[state.stack[0]]] = 1
-                    state.graph[state.convert[state.stack[0]],state.convert[state.stack[1]]] = 2
-                    state.label[state.convert[state.stack[0]]] = rel
-                state.stack = state.stack[1:]
-                state.tok_stack = torch.roll(state.tok_stack,-1,dims=0).clone()
-            elif act == "SWAP":
-                state.buf = [state.stack[1]] + state.buf
-                state.stack = [state.stack[0]] + state.stack[2:]
-                state.tok_stack = torch.cat(
-                    (state.tok_stack[0].unsqueeze(0), torch.roll(state.tok_stack[1:], -1, dims=0))).clone()
-                state.tok_buffer = torch.roll(state.tok_buffer, 1, dims=0).clone()
-                state.tok_buffer[0] = state.tok_stack[-1]
-
-    def state_legal_act(self, state):
-        t = [0,0,0,0]
-        if len(state.stack) >= 2 and state.stack[1] != 0:
-            t[0] = 1
-        if len(state.stack) >= 2 and state.stack[0] != 0:
-            t[1] = 1
-        if len(state.buf) > 0:
-            t[2] = 1
-        if len(state.stack) >= 2 and 0 < state.stack[1] < state.stack[0]:
-            t[3] = 1
-        return t
-
 
 class ArcStandardOps(ParserOperations):
     def __init__(self):
         super(ArcStandardOps, self).__init__()
         self.vocab_transitions = ['L', 'R', 'S']
-        self.act_dict = {0:"LEFTARC", 1:"RIGHTARC", 2:"SHIFT"}
 
     def get_vocab_transitions(self):
         return self.vocab_transitions
+
+    def get_state_class(self):
+        return ArcStandardState
 
     @classmethod
     def read_seq(self, in_file, vocab):
@@ -148,52 +103,17 @@ class ArcStandardOps(ParserOperations):
                 arcs.append(vocab.rel2id( line[1] ))
         return gold_seq
 
-    def state_update(self, state, act, rel=None):
-        act = self.act_dict[act.item()]
-        if not state.finished():
-            if act == "SHIFT":
-                state.stack = [state.buf[0]] + state.stack
-                state.buf = state.buf[1:]
-                state.tok_buffer = torch.roll(state.tok_buffer,-1,dims=0).clone()
-                state.tok_stack = torch.roll(state.tok_stack,1,dims=0).clone()
-                state.tok_stack[0] = state.tok_buffer[-1].clone()
-            elif act == "LEFTARC":
-                state.head[state.stack[1]] = [state.stack[0], rel.item()]
-                if state.input_graph:
-                    state.graph[state.convert[state.stack[0]],state.convert[state.stack[1]]] = 1
-                    state.graph[state.convert[state.stack[1]],state.convert[state.stack[0]]] = 2
-                    state.label[state.convert[state.stack[1]]] = rel
-                state.stack = [state.stack[0]] + state.stack[2:]
-                state.tok_stack = torch.cat(
-                    (state.tok_stack[0].unsqueeze(0),torch.roll(state.tok_stack[1:],-1,dims=0))).clone()
-            elif act == "RIGHTARC":
-                state.head[state.stack[0]] = [state.stack[1], rel.item()]
-                if state.input_graph:
-                    state.graph[state.convert[state.stack[1]],state.convert[state.stack[0]]] = 1
-                    state.graph[state.convert[state.stack[0]],state.convert[state.stack[1]]] = 2
-                    state.label[state.convert[state.stack[0]]] = rel
-                state.stack = state.stack[1:]
-                state.tok_stack = torch.roll(state.tok_stack,-1,dims=0).clone()
-
-    def state_legal_act(self, state):
-        t = [0,0,0]
-        if len(state.stack) >= 2 and state.stack[1] != 0:
-            t[0] = 1
-        if len(state.stack) >= 2 and state.stack[0] != 0:
-            t[1] = 1
-        if len(state.buf) > 0:
-            t[2] = 1
-        return t
-
 
 class ArcEagerOps(ParserOperations):
     def __init__(self):
         super(ArcEagerOps, self).__init__()
         self.vocab_transitions = ['LA', 'RA', 'SH', 'RE']
-        self.act_dict = {0:"LEFTARC", 1:"RIGHTARC", 2:"SHIFT", 3:"REDUCE"}
 
     def get_vocab_transitions(self):
         return self.vocab_transitions
+
+    def get_state_class(self):
+        return ArcEagerState
 
     @classmethod
     def read_seq(in_file, vocab):
@@ -228,50 +148,303 @@ class ArcEagerOps(ParserOperations):
                 arcs.append(vocab.rel2id( line[1] ))
         return gold_seq
 
-    def state_update(self, state, act, rel=None):
-        act = self.act_dict[act.item()]
-        if not state.finished():
-            if len(state.buf) == 0:
+## this class keeps parser state information
+class State(object):
+    def __init__(self):
+        pass
+
+    # build partially constructed graph
+    def build_graph(self,mask,device,bert_label):
+        raise NotImplementedError()
+
+    def get_graph(self):
+        raise NotImplementedError()
+
+    #required features for graph output mechanism (exist classifier)
+    def feature(self):
+        raise NotImplementedError()
+
+    # required features for graph output mechanism (relation classifier)
+    def feature_label(self):
+        raise NotImplementedError()
+
+    # update state
+    def update(self,act,rel=None):
+        raise NotImplementedError()
+
+    # legal actions at evaluation time
+    def legal_act(self):
+        raise NotImplementedError()
+
+    # check whether the dependency tree is completed or not.
+    def finished(self):
+        raise NotImplementedError()
+
+    def __repr__(self):
+        raise NotImplementedError()
+
+
+class ArcStandardSwapState(State):
+    def __init__(self, mask, device, bert_label=None, input_graph=False):
+        super(ArcStandardSwapState, self).__init__()
+        self.tok_buffer = mask.nonzero().squeeze(1)
+        self.tok_stack = torch.zeros(len(self.tok_buffer)+1).long().to(device)
+        self.tok_stack[0] = 1
+        self.buf = [i+1 for i in range(len(self.tok_buffer))]
+        self.stack = [0]
+        self.head = [[-1, -1] for _ in range(len(self.tok_buffer)+1)]
+        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"SWAP"}
+        self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
+        self.input_graph=input_graph
+
+    def build_graph(self,mask,device,bert_label):
+        graph = torch.zeros((len(mask),len(mask))).long().to(device)
+        label = torch.ones(len(mask) * bert_label).long().to(device)
+        offset = self.tok_buffer.clone()
+        convert = {0:1}
+        convert.update({i+1:off.item() for i,off in enumerate(offset)})
+        convert.update({len(convert):len(mask)})
+        for i in range(len(offset)-1):
+            graph[offset[i],offset[i]+1:offset[i+1]] = 1
+            graph[offset[i]+1:offset[i+1],offset[i]] = 2
+        label[offset] = 0
+        label[:2] = 0
+        del offset
+        return graph,label,convert
+
+    def get_graph(self):
+        return self.graph,self.label
+
+    def feature(self):
+        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)
+                          ,self.tok_buffer[0].unsqueeze(0)))
+
+    def feature_label(self):
+        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)))
+
+    def update(self,act,rel=None):
+        act = self.dict[act.item()]
+        if not self.finished():
+            if act == "SHIFT":
+                self.stack = [self.buf[0]] + self.stack
+                self.buf = self.buf[1:]
+                self.tok_buffer = torch.roll(self.tok_buffer,-1,dims=0).clone()
+                self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
+                self.tok_stack[0] = self.tok_buffer[-1].clone()
+            elif act == "LEFTARC":
+                self.head[self.stack[1]] = [self.stack[0], rel.item()]
+                if self.input_graph:
+                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 1
+                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 2
+                    self.label[self.convert[self.stack[1]]] = rel
+                self.stack = [self.stack[0]] + self.stack[2:]
+                self.tok_stack = torch.cat(
+                    (self.tok_stack[0].unsqueeze(0),torch.roll(self.tok_stack[1:],-1,dims=0))).clone()
+            elif act == "RIGHTARC":
+                self.head[self.stack[0]] = [self.stack[1], rel.item()]
+                if self.input_graph:
+                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 1
+                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 2
+                    self.label[self.convert[self.stack[0]]] = rel
+                self.stack = self.stack[1:]
+                self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
+            elif act == "SWAP":
+                self.buf = [self.stack[1]] + self.buf
+                self.stack = [self.stack[0]] + self.stack[2:]
+                self.tok_stack = torch.cat(
+                    (self.tok_stack[0].unsqueeze(0), torch.roll(self.tok_stack[1:], -1, dims=0))).clone()
+                self.tok_buffer = torch.roll(self.tok_buffer, 1, dims=0).clone()
+                self.tok_buffer[0] = self.tok_stack[-1]
+
+    def legal_act(self):
+        t = [0,0,0,0]
+        if len(self.stack) >= 2 and self.stack[1] != 0:
+            t[0] = 1
+        if len(self.stack) >= 2 and self.stack[0] != 0:
+            t[1] = 1
+        if len(self.buf) > 0:
+            t[2] = 1
+        if len(self.stack) >= 2 and 0 < self.stack[1] < self.stack[0]:
+            t[3] = 1
+        return t
+
+    def finished(self):
+        return len(self.stack) == 1 and len(self.buf) == 0
+
+    def __repr__(self):
+        return "State:\nConvert:{}\n Graph:{}\n,Label:{}\nHead:{}\n".\
+            format(self.convert,self.graph,self.label,self.head)
+
+
+class ArcStandardState(State):
+    def __init__(self, mask, device, bert_label=None, input_graph=False):
+        super(ArcStandardState, self).__init__()
+        self.tok_buffer = mask.nonzero().squeeze(1)
+        self.tok_stack = torch.zeros(len(self.tok_buffer)+1).long().to(device)
+        self.tok_stack[0] = 1
+        self.buf = [i+1 for i in range(len(self.tok_buffer))]
+        self.stack = [0]
+        self.head = [[-1, -1] for _ in range(len(self.tok_buffer)+1)]
+        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT"}
+        self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
+        self.input_graph=input_graph
+
+    def build_graph(self,mask,device,bert_label):
+        graph = torch.zeros((len(mask),len(mask))).long().to(device)
+        label = torch.ones(len(mask) * bert_label).long().to(device)
+        offset = self.tok_buffer.clone()
+        convert = {0:1}
+        convert.update({i+1:off.item() for i,off in enumerate(offset)})
+        convert.update({len(convert):len(mask)})
+        for i in range(len(offset)-1):
+            graph[offset[i],offset[i]+1:offset[i+1]] = 1
+            graph[offset[i]+1:offset[i+1],offset[i]] = 2
+        label[offset] = 0
+        label[:2] = 0
+        del offset
+        return graph,label,convert
+
+    def get_graph(self):
+        return self.graph,self.label
+
+    def feature(self):
+        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)
+                          ,self.tok_buffer[0].unsqueeze(0)))
+
+    def feature_label(self):
+        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)))
+
+    def update(self,act,rel=None):
+        act = self.dict[act.item()]
+        if not self.finished():
+            if act == "SHIFT":
+                self.stack = [self.buf[0]] + self.stack
+                self.buf = self.buf[1:]
+                self.tok_buffer = torch.roll(self.tok_buffer,-1,dims=0).clone()
+                self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
+                self.tok_stack[0] = self.tok_buffer[-1].clone()
+            elif act == "LEFTARC":
+                self.head[self.stack[1]] = [self.stack[0], rel.item()]
+                if self.input_graph:
+                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 1
+                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 2
+                    self.label[self.convert[self.stack[1]]] = rel
+                self.stack = [self.stack[0]] + self.stack[2:]
+                self.tok_stack = torch.cat(
+                    (self.tok_stack[0].unsqueeze(0),torch.roll(self.tok_stack[1:],-1,dims=0))).clone()
+            elif act == "RIGHTARC":
+                self.head[self.stack[0]] = [self.stack[1], rel.item()]
+                if self.input_graph:
+                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 1
+                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 2
+                    self.label[self.convert[self.stack[0]]] = rel
+                self.stack = self.stack[1:]
+                self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
+
+    def legal_act(self):
+        t = [0,0,0]
+        if len(self.stack) >= 2 and self.stack[1] != 0:
+            t[0] = 1
+        if len(self.stack) >= 2 and self.stack[0] != 0:
+            t[1] = 1
+        if len(self.buf) > 0:
+            t[2] = 1
+        return t
+
+    def finished(self):
+        return len(self.stack) == 1 and len(self.buf) == 0
+
+    def __repr__(self):
+        return "State:\nConvert:{}\n Graph:{}\n,Label:{}\nHead:{}\n".\
+            format(self.convert,self.graph,self.label,self.head)
+
+class ArcEagerState(State):
+    def __init__(self, mask, device, bert_label=None, input_graph=False):
+        super(ArcEagerState, self).__init__()
+        self.tok_buffer = mask.nonzero().squeeze(1)
+        self.tok_stack = torch.zeros(len(self.tok_buffer)+1).long().to(device)
+        self.tok_stack[0] = 1
+        self.buf = [i+1 for i in range(len(self.tok_buffer))]
+        self.stack = [0]
+        self.head = [[-1, -1] for _ in range(len(self.tok_buffer)+1)]
+        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"REDUCE"}
+        self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
+        self.input_graph=input_graph
+
+    def build_graph(self,mask,device,bert_label):
+        graph = torch.zeros((len(mask),len(mask))).long().to(device)
+        label = torch.ones(len(mask) * bert_label).long().to(device)
+        offset = self.tok_buffer.clone()
+        convert = {0:1}
+        convert.update({i+1:off.item() for i,off in enumerate(offset)})
+        convert.update({len(convert):len(mask)})
+        for i in range(len(offset)-1):
+            graph[offset[i],offset[i]+1:offset[i+1]] = 1
+            graph[offset[i]+1:offset[i+1],offset[i]] = 2
+        label[offset] = 0
+        label[:2] = 0
+        del offset
+        return graph,label,convert
+
+    def get_graph(self):
+        return self.graph,self.label
+
+    def feature(self):
+        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)
+                          ,self.tok_buffer[0].unsqueeze(0)))
+
+    def feature_label(self):
+        return torch.cat((self.tok_stack[0].unsqueeze(0),self.tok_buffer[0].unsqueeze(0)))
+
+    def update(self,act,rel=None):
+        act = self.dict[act.item()]
+        if not self.finished():
+            if len(self.buf) == 0:
                 act = "REDUCE"
             if act == "SHIFT":
-                state.stack = [state.buf[0]] + state.stack
-                state.buf = state.buf[1:]
-                state.tok_buffer = torch.roll(state.tok_buffer,-1,dims=0).clone()
-                state.tok_stack = torch.roll(state.tok_stack,1,dims=0).clone()
-                state.tok_stack[0] = state.tok_buffer[-1].clone()
+                self.stack = [self.buf[0]] + self.stack
+                self.buf = self.buf[1:]
+                self.tok_buffer = torch.roll(self.tok_buffer,-1,dims=0).clone()
+                self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
+                self.tok_stack[0] = self.tok_buffer[-1].clone()
             elif act == "LEFTARC":
-                state.head[state.stack[0]] = [state.buf[0], rel.item()]
-                if state.input_graph:
-                    state.graph[state.convert[state.buf[0]],state.convert[state.stack[0]]] = 1
-                    state.graph[state.convert[state.stack[0]],state.convert[state.buf[0]]] = 2
-                    state.label[state.convert[state.stack[0]]] = rel
-                state.stack = state.stack[1:]
-                state.tok_stack = torch.roll(state.tok_stack,-1,dims=0).clone()
+                self.head[self.stack[0]] = [self.buf[0], rel.item()]
+                if self.input_graph:
+                    self.graph[self.convert[self.buf[0]],self.convert[self.stack[0]]] = 1
+                    self.graph[self.convert[self.stack[0]],self.convert[self.buf[0]]] = 2
+                    self.label[self.convert[self.stack[0]]] = rel
+                self.stack = self.stack[1:]
+                self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
             elif act == "RIGHTARC":
-                state.head[state.buf[0]] = [state.stack[0], rel.item()]
-                if state.input_graph:
-                    state.graph[state.convert[state.stack[0]],state.convert[state.buf[0]]] = 1
-                    state.graph[state.convert[state.buf[0]],state.convert[state.stack[0]]] = 2
-                    state.label[state.convert[state.buf[0]]] = rel
-                state.stack = [state.buf[0]] + state.stack
-                state.buf = state.buf[1:]
-                state.tok_buffer = torch.roll(state.tok_buffer,-1,dims=0).clone()
-                state.tok_stack = torch.roll(state.tok_stack,1,dims=0).clone()
-                state.tok_stack[0] = state.tok_buffer[-1].clone()
+                self.head[self.buf[0]] = [self.stack[0], rel.item()]
+                if self.input_graph:
+                    self.graph[self.convert[self.stack[0]],self.convert[self.buf[0]]] = 1
+                    self.graph[self.convert[self.buf[0]],self.convert[self.stack[0]]] = 2
+                    self.label[self.convert[self.buf[0]]] = rel
+                self.stack = [self.buf[0]] + self.stack
+                self.buf = self.buf[1:]
+                self.tok_buffer = torch.roll(self.tok_buffer,-1,dims=0).clone()
+                self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
+                self.tok_stack[0] = self.tok_buffer[-1].clone()
             elif act == "REDUCE":
-                state.stack = state.stack[1:]
-                state.tok_stack = torch.roll(state.tok_stack,-1,dims=0).clone()
+                self.stack = self.stack[1:]
+                self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
 
-
-    def state_legal_act(self, state):
+    def legal_act(self):
         t = [0,0,0,0]
-        if len(state.buf) > 0:
+        if len(self.buf) > 0:
             t[2] = 1 # shift
-            if len(state.stack) >= 2:
+            if len(self.stack) >= 2:
                 t[1] = 1 # right-arc
-                if state.stack[0] != 0:
+                if self.stack[0] != 0:
                     t[0] = 1 # left-arc
-        if len(state.stack) >= 2:
+        if len(self.stack) >= 2:
             t[3] = 1 # reduce
         return t
 
+    def finished(self):
+        return len(self.stack) == 1 and len(self.buf) == 0
+
+    def __repr__(self):
+        return "State:\nConvert:{}\n Graph:{}\n,Label:{}\nHead:{}\n".\
+            format(self.convert,self.graph,self.label,self.head)

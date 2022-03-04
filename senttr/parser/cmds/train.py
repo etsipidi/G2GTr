@@ -95,17 +95,18 @@ class Train(object):
 
         subparser.add_argument('--main_path', default='', help='path to main directory')
 
-        subparser.add_argument('--parser_type', default='asd_swap',
-                               help="'ae' for arc-eager, 'asd' for arc-standard and 'asd_swap' for arc-standard with swap")
+        subparser.add_argument('--transsys', type=str, choices=['AES', 'ASd', 'ASWAP'],
+                     help=("Transition system to use: arc-eager prioratizing shift, "
+                           "arc-standard, arc-standard with swap"), default='ASWAP')
 
         return subparser
 
     def __call__(self, config):
         print("Preprocess the data")
 
-        if config.parser_type == 'asd':
+        if config.transsys == 'ASd':
             parser_ops = ArcStandardOps()
-        elif config.parser_type == 'ae':
+        elif config.transsys == 'AES':
             parser_ops = ArcEagerOps()
         else:
             parser_ops = ArcStandardSwapOps()
@@ -182,7 +183,8 @@ class Train(object):
             device = torch.device('cuda')
             parser = parser.to(device)
 
-        model = Model(vocab, parser, parser_ops, config, vocab.n_rels)
+        state_class = parser_ops.get_state_class()
+        model = Model(vocab, parser, state_class, config, vocab.n_rels)
         total_time = timedelta()
         best_e, best_metric = 1, Metric()
 

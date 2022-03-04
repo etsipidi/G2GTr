@@ -3,6 +3,7 @@
 from parser import Parser, Model
 from parser.utils import Corpus
 from parser.utils.data import TextDataset, batchify
+from parser.utils.operations import ArcStandardSwapOps, ArcStandardOps, ArcEagerOps
 import torch
 
 
@@ -20,6 +21,9 @@ class Predict(object):
                                help='Path to trained model')
         subparser.add_argument('--mainpath', default='None',
                                help='Main path')
+        subparser.add_argument('--transsys', type=str, choices=['AES', 'ASd', 'ASWAP'],
+                     help=("Transition system to use: arc-eager prioratizing shift, "
+                           "arc-standard, arc-standard with swap"), default='ASWAP')
         return subparser
 
     def rearange(self, items, ids):
@@ -44,7 +48,16 @@ class Predict(object):
 
         vocab = torch.load(vocabpath)
         parser = Parser.load(modelpath)
-        model = Model(vocab, parser, config, vocab.n_rels)
+
+        if args.transsys == 'ASd':
+            parser_ops = ArcStandardOps()
+        elif args.transsys == 'AES':
+            parser_ops = ArcEagerOps()
+        else:
+            parser_ops = ArcStandardSwapOps()
+        state_class = parser_ops.get_state_class()
+
+        model = Model(vocab, parser, state_class, config, vocab.n_rels)
 
         print("Load the dataset")
         corpus = Corpus.load(args.fdata)

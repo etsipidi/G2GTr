@@ -10,73 +10,16 @@ from tqdm import tqdm
 import torch.nn.functional as F
 
 
-## this class keeps parser state information
-class State(object):
-    def __init__(self, mask, parser_ops, device,bert_label=None,input_graph=False):
-        self.tok_buffer = mask.nonzero().squeeze(1)
-        self.tok_stack = torch.zeros(len(self.tok_buffer)+1).long().to(device)
-        self.tok_stack[0] = 1
-        self.buf = [i+1 for i in range(len(self.tok_buffer))]
-        self.stack = [0]
-        self.head = [[-1, -1] for _ in range(len(self.tok_buffer)+1)]
-        self.parser_ops = parser_ops
-        self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
-        self.input_graph=input_graph
-
-    # build partially constructed graph
-    def build_graph(self,mask,device,bert_label):
-        graph = torch.zeros((len(mask),len(mask))).long().to(device)
-        label = torch.ones(len(mask) * bert_label).long().to(device)
-        offset = self.tok_buffer.clone()
-        convert = {0:1}
-        convert.update({i+1:off.item() for i,off in enumerate(offset)})
-        convert.update({len(convert):len(mask)})
-        for i in range(len(offset)-1):
-            graph[offset[i],offset[i]+1:offset[i+1]] = 1
-            graph[offset[i]+1:offset[i+1],offset[i]] = 2
-        label[offset] = 0
-        label[:2] = 0
-        del offset
-        return graph,label,convert
-
-    def get_graph(self):
-        return self.graph,self.label
-
-    #required features for graph output mechanism (exist classifier)
-    def feature(self):
-        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)
-                          ,self.tok_buffer[0].unsqueeze(0)))
-
-    # required features for graph output mechanism (relation classifier)
-    def feature_label(self):
-        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)))
-
-    # update state
-    def update(self,act,rel=None):
-        self.parser_ops.state_update(self, act, rel)
-
-    # legal actions at evaluation time
-    def legal_act(self):
-        return self.parser_ops.state_legal_act(self)
-
-    # check whether the dependency tree is completed or not.
-    def finished(self):
-        return len(self.stack) == 1 and len(self.buf) == 0
-
-    def __repr__(self):
-        return "State:\nConvert:{}\n Graph:{}\n,Label:{}\nHead:{}\n".\
-            format(self.convert,self.graph,self.label,self.head)
-
 class Model(object):
 
-    def __init__(self, vocab, parser, parser_ops, config, num_labels):
+    def __init__(self, vocab, parser, state_class, config, num_labels):
         super(Model, self).__init__()
         self.vocab = vocab
         self.parser = parser
         self.num_labels = num_labels
         self.config = config
         self.criterion = nn.CrossEntropyLoss()
-        self.parser_ops = parser_ops
+        self.state_class = state_class
 
     def train(self, loader):
         self.parser.train()
@@ -84,7 +27,7 @@ class Model(object):
 
         for ccc,(words, tags, masks, actions, mask_actions, rels) in enumerate(loader):
 
-            states = [State(mask, self.parser_ops, tags.device,self.vocab.bert_index,self.config.input_graph)
+            states = [self.state_class(mask, tags.device,self.vocab.bert_index,self.config.input_graph)
                       for mask in masks]
             s_arc,s_rel = self.parser(words, tags, masks, states, actions, rels)
 
@@ -126,7 +69,7 @@ class Model(object):
         pbar = tqdm(total=len(loader))
 
         for words, tags, masks,heads,rels,mask_heads in loader:
-            states = [State(mask, self.parser_ops, tags.device,self.vocab.bert_index,self.config.input_graph)
+            states = [self.state_class(mask, tags.device,self.vocab.bert_index,self.config.input_graph)
                       for mask in masks]
 
             states = self.parser(words, tags, masks,states)
@@ -157,7 +100,7 @@ class Model(object):
         pbar = tqdm(total=len(loader))
         all_arcs, all_rels = [], []
         for words, tags, masks,heads,rels,mask_heads in loader:
-            states = [State(mask, self.parser_ops, tags.device, self.vocab.bert_index,self.config.input_graph)
+            states = [self.state_class(mask, tags.device, self.vocab.bert_index,self.config.input_graph)
                       for mask in masks]
             states = self.parser(words, tags, masks, states)
 

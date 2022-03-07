@@ -116,7 +116,7 @@ class ArcEagerOps(ParserOperations):
         return ArcEagerState
 
     @classmethod
-    def read_seq(in_file, vocab):
+    def read_seq(self, in_file, vocab):
         lines = []
         with open(in_file, 'r') as f:
             for line in f:

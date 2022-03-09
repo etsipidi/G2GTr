@@ -55,8 +55,6 @@ class State(object):
     def update(self,act,rel=None):
         act = self.dict[act.item()]
         if not self.finished():
-            if len(self.buf) == 0:
-                act = "REDUCE"
             if act == "SHIFT":
                 self.stack = [self.buf[0]] + self.stack
                 self.buf = self.buf[1:]

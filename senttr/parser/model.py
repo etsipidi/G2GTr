@@ -44,8 +44,12 @@ class State(object):
 
     #required features for graph output mechanism (exist classifier)
     def feature(self):
-        return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)
-                          ,self.tok_buffer[0].unsqueeze(0)))
+        if len(self.tok_buffer) > 1:
+            return torch.cat((self.tok_stack[0].unsqueeze(0),self.tok_buffer[0].unsqueeze(0)
+                              ,self.tok_buffer[1].unsqueeze(0)))
+        else:
+            return torch.cat((self.tok_stack[0].unsqueeze(0),self.tok_buffer[0].unsqueeze(0)
+                              ,torch.tensor(-1)))
 
     # required features for graph output mechanism (relation classifier)
     def feature_label(self):

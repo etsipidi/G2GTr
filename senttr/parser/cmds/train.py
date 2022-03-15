@@ -283,6 +283,7 @@ class Train(object):
             model.train(train_loader)
             print(f"Epoch {epoch} / {config.epochs}:")
             f1 = open(f1_path,"a")
+            print("Evaluation")
             dev_metric = model.evaluate(dev_loader, config.punct)
             f1.write(str(epoch)+"\n")
             print(f"{'dev:':6} {dev_metric}")

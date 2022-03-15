@@ -152,7 +152,7 @@ class ArcEagerOps(ParserOperations):
 class EisnerOps(ParserOperations):
     def __init__(self):
         super(EisnerOps, self).__init__()
-        self.vocab_transitions = ['L', 'R', 'S']
+        self.vocab_transitions = ['L', 'R', 'S', 'T']
 
     def get_vocab_transitions(self):
         return self.vocab_transitions
@@ -187,6 +187,10 @@ class EisnerOps(ParserOperations):
                 assert line[0] == 'Left-Arc'
                 seq.append(0)
                 arcs.append(vocab.rel2id( line[1] ))
+            elif line[0].startswith('T'):
+                assert line[0] == 'Trans'
+                seq.append(3)
+                arcs.append(0)
         return gold_seq
 
 
@@ -409,7 +413,7 @@ class EisnerState(State):
         self.buf = [i+1 for i in range(len(self.tok_buffer))]
         self.stack = [0]
         self.head = [[-1, -1] for _ in range(len(self.tok_buffer)+1)]
-        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT"}
+        self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"TRANS"}
         self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
         self.input_graph=input_graph
 
@@ -440,39 +444,50 @@ class EisnerState(State):
 
     def update(self,act,rel=None):
         act = self.dict[act.item()]
+        print(act)
         if not self.finished():
             if act == "SHIFT":
-                self.stack = [self.buf[0]] + self.stack
+                self.stack = ['X_'+str(self.buf[0])] + self.stack
                 self.buf = self.buf[1:]
                 self.tok_buffer = torch.roll(self.tok_buffer,-1,dims=0).clone()
                 self.tok_stack = torch.roll(self.tok_stack,1,dims=0).clone()
                 self.tok_stack[0] = self.tok_buffer[-1].clone()
             elif act == "LEFTARC":
-                self.head[self.stack[1]] = [self.stack[0], rel.item()]
+                self.head[int(self.stack[1].strip('Y_'))] = [int(self.stack[0].strip('X_')), rel.item()]
                 if self.input_graph:
-                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 1
-                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 2
-                    self.label[self.convert[self.stack[1]]] = rel
+                    self.graph[self.convert[int(self.stack[0].strip('X_'))],self.convert[int(self.stack[1].strip('Y_'))]] = 1
+                    self.graph[self.convert[int(self.stack[1].strip('Y_'))],self.convert[int(self.stack[0].strip('X_'))]] = 2
+                    self.label[self.convert[int(self.stack[1].strip('Y_'))]] = rel
                 self.stack = [self.stack[0]] + self.stack[2:]
                 self.tok_stack = torch.cat(
                     (self.tok_stack[0].unsqueeze(0),torch.roll(self.tok_stack[1:],-1,dims=0))).clone()
             elif act == "RIGHTARC":
-                self.head[self.stack[0]] = [self.stack[1], rel.item()]
+                if self.stack[1] == 0:
+                    a, b = int(self.stack[0].strip('Y_')), self.stack[1]
+                else:
+                    a, b = int(self.stack[0].strip('Y_')), int(self.stack[1].strip('Y_'))
+                self.head[a] = [b, rel.item()]
                 if self.input_graph:
-                    self.graph[self.convert[self.stack[1]],self.convert[self.stack[0]]] = 1
-                    self.graph[self.convert[self.stack[0]],self.convert[self.stack[1]]] = 2
-                    self.label[self.convert[self.stack[0]]] = rel
+                    self.graph[self.convert[b],self.convert[a]] = 1
+                    self.graph[self.convert[a],self.convert[b]] = 2
+                    self.label[self.convert[a]] = rel
                 self.stack = self.stack[1:]
                 self.tok_stack = torch.roll(self.tok_stack,-1,dims=0).clone()
+            elif act == "TRANS":
+                self.stack = ["Y_"+self.stack[0].strip("X_")] + self.stack[1:]
 
     def legal_act(self):
-        t = [0,0,0]
+        # TODO: add checks for X and Y for left and right arc - is the order right?
+        print(self.stack)
+        t = [0,0,0,0]
         if len(self.stack) >= 2 and self.stack[1] != 0:
             t[0] = 1
-        if len(self.stack) >= 2 and self.stack[0] != 0:
+        if len(self.stack) >= 2 and self.stack[0] != 0 and self.stack[0][:2] == 'X_':
             t[1] = 1
-        if len(self.buf) > 0:
+        if len(self.buf) > 0 and self.stack[0][:2] == 'Y_':
             t[2] = 1
+        if len(self.stack) >= 1 and self.stack[0] != 0 and self.stack[0][:2] == 'X_':
+            t[3] = 1
         return t
 
     def finished(self):

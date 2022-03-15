@@ -7,7 +7,7 @@ from parser import Parser, Model
 from parser.metric import Metric
 from parser.utils import Corpus, Vocab
 from parser.utils.data import TextDataset, batchify
-from parser.utils.operations import ArcStandardSwapOps, ArcStandardOps, ArcEagerOps
+from parser.utils.operations import ArcStandardSwapOps, ArcStandardOps, ArcEagerOps, EisnerOps
 
 import torch
 from transformers import AdamW,get_linear_schedule_with_warmup
@@ -95,7 +95,7 @@ class Train(object):
 
         subparser.add_argument('--main_path', default='', help='path to main directory')
 
-        subparser.add_argument('--transsys', type=str, choices=['AES', 'ASd', 'ASWAP'],
+        subparser.add_argument('--transsys', type=str, choices=['AES', 'ASd', 'ASWAP', 'Eisner'],
                      help=("Transition system to use: arc-eager prioratizing shift, "
                            "arc-standard, arc-standard with swap"), default='ASWAP')
 
@@ -108,6 +108,11 @@ class Train(object):
             parser_ops = ArcStandardOps()
         elif config.transsys == 'AES':
             parser_ops = ArcEagerOps()
+        elif config.transsys == 'Eisner':
+            parser_ops = EisnerOps()
+        elif config.transsys == 'AER':
+            raise ModuleNotFoundError("Arc Eager Done Rigth is not implemented.")
+            # parser_ops = ArcEagerRightOps()
         else:
             parser_ops = ArcStandardSwapOps()
 

@@ -106,8 +106,11 @@ class Parser(nn.Module):
             # predict action and label for the next iteration (use gold during training)
             if actions is None:
                 legal_actions = torch.tensor([state.legal_act() for state in states])\
-                    .long().to(words.device)
-                _,act = torch.max(out_arc+1000*legal_actions,dim=1)
+                        .long().to(words.device)
+                if 1 in legal_actions:
+                    _,act = torch.max(out_arc+1000*legal_actions,dim=1)
+                else:
+                    act = torch.tensor([-1])
                 _,rel = torch.max(out_rel,dim=1)
             else:
                 act = actions[:,step]

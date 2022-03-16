@@ -416,6 +416,7 @@ class EisnerState(State):
         self.dict = {0:"LEFTARC", 1:"RIGHTARC" ,2:"SHIFT", 3:"TRANS"}
         self.graph,self.label,self.convert = self.build_graph(mask,device,bert_label)
         self.input_graph=input_graph
+        self.act = None
 
     def build_graph(self,mask,device,bert_label):
         graph = torch.zeros((len(mask),len(mask))).long().to(device)
@@ -443,9 +444,9 @@ class EisnerState(State):
         return torch.cat((self.tok_stack[1].unsqueeze(0),self.tok_stack[0].unsqueeze(0)))
 
     def update(self,act,rel=None):
-        act = self.dict[act.item()]
-        print(act)
+        self.act = act.item()
         if not self.finished():
+            act = self.dict[act.item()]
             if act == "SHIFT":
                 self.stack = ['X_'+str(self.buf[0])] + self.stack
                 self.buf = self.buf[1:]
@@ -477,21 +478,26 @@ class EisnerState(State):
                 self.stack = ["Y_"+self.stack[0].strip("X_")] + self.stack[1:]
 
     def legal_act(self):
-        # TODO: add checks for X and Y for left and right arc - is the order right?
-        print(self.stack)
         t = [0,0,0,0]
-        if len(self.stack) >= 2 and self.stack[1] != 0:
-            t[0] = 1
-        if len(self.stack) >= 2 and self.stack[0] != 0 and self.stack[0][:2] == 'X_':
-            t[1] = 1
-        if len(self.buf) > 0 and self.stack[0][:2] == 'Y_':
-            t[2] = 1
-        if len(self.stack) >= 1 and self.stack[0] != 0 and self.stack[0][:2] == 'X_':
-            t[3] = 1
+        try:
+            # LEFTARC
+            if len(self.stack) >= 2 and self.stack[1] != 0 and self.stack[0][:2] == 'X_' and self.stack[1][:2] == 'Y_':
+                t[0] = 1
+            # RIGHTARC
+            if len(self.stack) >= 2 and self.stack[0] != 0 and self.stack[0][:2] == 'Y_' and (str(self.stack[1]) == '0' or self.stack[1][:2] == 'Y_'):
+                t[1] = 1
+            # SHIFT
+            if len(self.buf) > 0:
+                t[2] = 1
+            # TRANS
+            if len(self.stack) >= 1 and self.stack[0] != 0 and self.stack[0][:2] == 'X_':
+                t[3] = 1
+        except:
+            raise Exception("Wrong action specification!")
         return t
 
     def finished(self):
-        return len(self.stack) == 1 and len(self.buf) == 0
+        return self.act == -1 or (len(self.stack) == 1 and len(self.buf) == 0)
 
     def __repr__(self):
         return "State:\nConvert:{}\n Graph:{}\n,Label:{}\nHead:{}\n".\
